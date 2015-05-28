@@ -9,5 +9,3 @@ listcsv <- dir(pattern = "*.csv") # creates the list of all the csv files in the
 for (k in 1:length(listcsv)){
     ldf[[k]] <- read.csv(listcsv[k], header = FALSE)
 }
-
-)
