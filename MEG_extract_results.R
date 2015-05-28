@@ -2,6 +2,9 @@ library(dplyr)
 library(reshape2)
 library(BayesFactor)
 library(lme4)
+library(multcomp)
+library(tidyr)
+library(BEST)
 
 # setwd("/home/mje/mnt/RP_meg/scratch/mne_analysis_5/exports")
 setwd("~/Projects/MEG_RP_behav/")
@@ -11,8 +14,8 @@ data <- tbl_df(read.csv("MEG_exports_long.csv"))
 
 
 #### Mixed models ####
-m_null <- lmer(value ~ 1 + (1|id:condition) + (1|id:time) + (1|id:ROI) + (1|id),
-              data = data2, REML=FALSE)
+m_null <- lmer(value ~ 1 + (1|id:condition) + (1|id:time) + (1|id:ROI) +
+                 (1|id), data = data2, REML=FALSE)
 
 
 m_null <- lmer(value ~ 1 + (1|id),
@@ -28,7 +31,6 @@ m_full <- update(m_t_r, .~. + condition:time:ROI)
 
 anova(m_null, m_condition, m_time, m_roi, m_c_t, m_c_r, m_t_r, m_full)
 
-library(multcomp)
 # linear testing
 postHocs.cond<-glht(m_c_r, linfct = mcp(condition = "Tukey"))
 summary(postHocs.cond)
@@ -119,7 +121,7 @@ for (i in 1:length(ROIS)){
 }
 
 
-#### T-tests ####
+#### BF T-tests ####
 ROIS <- unique(data$ROI)
 times <- unique(data$time)
 
@@ -138,3 +140,36 @@ for (i in 1:length(ROIS)){
 
 
 
+#### Parametric T-tests ####
+ROIS <- unique(data$ROI)
+times <- unique(data$time)
+
+pvals <- NULL
+counter = 1
+for (i in 1:length(ROIS)){
+    for (h in 1:length(times)){
+        wide_data <- data2 %>%
+          filter(time==times[h] & ROI==ROIS[i])
+   pvals[counter] <- t.test(value~condition, data=wide_data, paired=T)$p.value
+    counter = counter + 1
+    }
+}
+
+
+#### BEST T-tests ####
+ROIS <- unique(data$ROI)
+times <- unique(data$time)
+results <- NULL
+
+pvals <- NULL
+counter = 1
+for (i in 1:length(ROIS)){
+    for (h in 1:length(times)){
+        wide_data <- data2 %>%
+          filter(time==times[h] & ROI==ROIS[i]) %>% 
+          spread(condition, value) %>% 
+          mutate(diff = classic - plan)
+    fooModel <- BESTmcmc(wide_data$plan, wide_data$classic)
+    results <- list(results, fooModel)
+    }
+}
